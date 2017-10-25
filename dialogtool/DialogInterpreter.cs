@@ -96,10 +96,12 @@ namespace dialogtool
 
         private static void ExecuteVariableAssignments(DialogNode dialogNode, IDictionary<string, string> variablesValues)
         {
+           
             if (dialogNode.VariableAssignments != null)
             {
                 foreach (var assignment in dialogNode.VariableAssignments)
                 {
+                    
                     if (assignment.Operator == DialogVariableOperator.CopyValueFromVariable)
                     {
                         if(variablesValues.ContainsKey(assignment.Value))
@@ -449,7 +451,7 @@ namespace dialogtool
 
     public class FatHeadAnswerNodeExecution : DialogNodeExecution
     {
-        public FatHeadAnswerNodeExecution(DialogNode dialogNode, string mappingUri) : base(dialogNode)
+        public FatHeadAnswerNodeExecution(DialogNode dialogNode, string mappingUri = null) : base(dialogNode)
         {
             MappingURI = mappingUri;
         }

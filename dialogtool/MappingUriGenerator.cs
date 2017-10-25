@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 namespace dialogtool
 {
@@ -17,6 +19,10 @@ namespace dialogtool
 
         private static string Insurance_RedirectToLongTailVariable = "REDIRECT_LONG_TAIL";
 
+        private static string[] Insurance_List_Federation = { "CMO", "CMNE", "CIC", "CM", "CMMABN" };
+        // The list of the not available fondation for each product
+        private static Dictionary<string, List<String>> Insurance_FederationNotAllowedEntities = new Dictionary<string, List<String>>();
+
         private static string[][] Insurance_DeduceVariableValues = {
             new string[] { "CLASSIFIER_CLASS_0", "Housing_", "SubDomain_Var", "housing" },
             new string[] { "CLASSIFIER_CLASS_0", "Auto_", "SubDomain_Var", "auto" } };
@@ -31,7 +37,7 @@ namespace dialogtool
             new string[] { "guarantee_entity", "Guarantee_Var" } };
 
         // Savings configuration
-        
+
         private static string Savings_RedirectToLongTailVariable = "REDIRECT_LONG_TAIL";
         private static string[] Savings_FederationNotSupportedVariables = { "NON_FED_PRODUCT", "NON_FED_SUPPORT" };
 
@@ -57,12 +63,73 @@ namespace dialogtool
             return mappingUriSegments.Where(p => p[1] != "federationGroup" && p[1] != "CLASSIFIER_CLASS_0").SelectMany(p => new string[] { p[1], p[1] + "_2" });
         }
 
+        public static List<String> AddFederationsToUri(string uri)
+        {
+            var newUris = new List<String>();
+
+            var uriTemp = uri;
+            foreach (string federation in Insurance_List_Federation)
+            {
+                uriTemp = "/federationGroup/" + federation + uri;
+                bool restrictionOnProduct = false;
+                foreach (var tuple in Insurance_FederationNotAllowedEntities)
+                {
+                    // If the URI is about this product
+                    if (uriTemp.Contains("/" + tuple.Key))
+                    {
+                        restrictionOnProduct = true;
+                        // Check if the actual uri has the forbidden Federations
+                        bool inside = false;
+                        foreach (var fede in tuple.Value)
+                        {
+                            if (uriTemp.Contains("/federationGroup/" + fede + "/"))
+                                inside = true;
+                        }
+                        if (!inside)
+                            if (uri != null) newUris.Add(uriTemp);
+                    }
+
+                }
+                if (!restrictionOnProduct)
+                    if (uri != null) newUris.Add(uriTemp);
+            }
+            return newUris;
+        }
+
+        public static void FindInsuranceAllowedValue(XDocument XmlDocument)
+        {
+            var firstSelection = XmlDocument.Descendants("if").Where(x => x.Element("cond").Attribute("varName").Value == "Product_Var");
+            var globalIf = firstSelection.Descendants("if").Where(x => Insurance_List_Federation.Contains(x.Element("cond").Value)).Select(x => x.Parent).Distinct();
+
+            foreach (var elt in globalIf)
+            {
+                string product = elt.Element("cond").Value;
+                var notOkTemp = elt.Descendants("item").Select(x => x.Parent.Parent.Parent);
+                var notOk = notOkTemp.Elements("cond");
+
+                List<String> federations = new List<String>();
+                foreach (var elt2 in notOk)
+                {
+                    federations.Add(elt2.Value);
+                }
+
+                if (!Insurance_FederationNotAllowedEntities.ContainsKey(product))
+                    Insurance_FederationNotAllowedEntities.Add(product, federations);
+            }
+
+        }
+
+
+        
+
+
         // Mapping URIs generation
 
-        public static string[] GenerateMappingURIs(DialogVariablesSimulator dialogVariablesSimulator, MappingUriConfig mappingUriConfig, IDictionary<string, IDictionary<string, IList<string>>> arraysOfAllowedValuesByEntityNameAndFederation, out bool redirectToLongTail)
+        public static string[] GenerateMappingURIs(DialogVariablesSimulator dialogVariablesSimulator, MappingUriConfig mappingUriConfig, IDictionary<string, IDictionary<string, IList<string>>> arraysOfAllowedValuesByEntityNameAndFederation, out bool redirectToLongTail, XDocument XmlDocument = null, DialogNode node = null)
         {
+
             IList<string> federationGroups = null;
-            if(arraysOfAllowedValuesByEntityNameAndFederation != null)
+            if (arraysOfAllowedValuesByEntityNameAndFederation != null)
             {
                 federationGroups = arraysOfAllowedValuesByEntityNameAndFederation.Values.First().Keys.ToList();
             }
@@ -71,14 +138,14 @@ namespace dialogtool
             var redirectToLongTailVariableName = mappingUriConfig == MappingUriConfig.Insurance ? Insurance_RedirectToLongTailVariable : Savings_RedirectToLongTailVariable;
             var redirectToLongTailValue = dialogVariablesSimulator.TryGetVariableValue(redirectToLongTailVariableName);
             redirectToLongTail = redirectToLongTailValue == "yes";
-            if(redirectToLongTail)
+            if (redirectToLongTail)
             {
                 return null;
             }
 
             // Deduce subdomain from entity name
             string[][] deduceVariableValues = mappingUriConfig == MappingUriConfig.Insurance ? Insurance_DeduceVariableValues : Savings_DeduceVariableValues;
-            foreach(var deduceVariableStrings in deduceVariableValues)
+            foreach (var deduceVariableStrings in deduceVariableValues)
             {
                 var inspectedVariable = deduceVariableStrings[0];
                 var searchPattern = deduceVariableStrings[1];
@@ -86,7 +153,7 @@ namespace dialogtool
                 var targetValue = deduceVariableStrings[3];
 
                 var inspectedValue = dialogVariablesSimulator.TryGetVariableValue(inspectedVariable);
-                if(inspectedValue != null && inspectedValue.Contains(searchPattern))
+                if (inspectedValue != null && inspectedValue.Contains(searchPattern))
                 {
                     dialogVariablesSimulator.SetVariableValue(targetVariable, targetValue, DialogNodeType.FatHeadAnswers);
                 }
@@ -95,11 +162,11 @@ namespace dialogtool
             // Generate mapping URIs
             string[][] mappingUriSegments = mappingUriConfig == MappingUriConfig.Insurance ? Insurance_MappingUriSegments : Savings_MappingUriSegments;
             IList<string>[] mappingUriValues = new IList<string>[mappingUriSegments.Length];
-            for(int i = 0; i < mappingUriSegments.Length; i++)
+            for (int i = 0; i < mappingUriSegments.Length; i++)
             {
                 mappingUriValues[i] = dialogVariablesSimulator.TryGetVariableValues(mappingUriSegments[i][1]);
                 // Generate mapping URIs for all federation groups if needed
-                if(mappingUriValues[i] == null && mappingUriSegments[i][1] == "federationGroup")
+                if (mappingUriValues[i] == null && mappingUriSegments[i][1] == "federationGroup")
                 {
                     mappingUriValues[i] = federationGroups;
                 }
@@ -110,6 +177,7 @@ namespace dialogtool
                     if (dialogVariablesSimulator.Variables.TryGetValue(mappingUriSegments[i][1], out variable))
                     {
                         var entity = dialogVariablesSimulator.TryGetEntityFromVariable(variable);
+
                         if (entity != null)
                         {
                             var valuesCount = mappingUriValues[i].Count;
@@ -117,14 +185,42 @@ namespace dialogtool
                             {
                                 var entityValueName = mappingUriValues[i][j];
                                 var entityValue = entity.TryGetEntityValueFromName(entityValueName);
+                                
                                 if (entityValue == null)
                                 {
-                                    mappingUriValues[i].RemoveAt(j);
-                                    j--;
-                                    valuesCount--;
+                                    // Force in case it is a SET_TO operator with a disambiguationQuestion
+                                    if (node != null)
+                                        if(node.ParentNode != null)
+                                            if(node.ParentNode.ParentNode != null)
+                                                if (node.ParentNode.ParentNode.ParentNode != null)
+                                                {
+                                                    var DisambiguationQuestion = node.ParentNode.ParentNode.ParentNode;
+                                                    if (DisambiguationQuestion.Type == DialogNodeType.DisambiguationQuestion)
+                                                    {
+                                                        string setToEntityType = mappingUriSegments[i][1];
+                                                        var condition = node.ParentNode;
+                                                        var listEntityTypeCondition = StringUtils.ExtractFromString(condition.ToString(), ":", "=");
+                                                        var listEntityValueCondition = StringUtils.ExtractFromString(condition.ToString(), "'", "'");
+
+                                                        for(int a = 0; a < listEntityTypeCondition.Count; a ++)
+                                                        {
+                                                             if (setToEntityType == listEntityTypeCondition[a])
+                                                             {
+                                                                   entityValue = entity.TryGetEntityValueFromName(listEntityValueCondition[a]);
+                                                                   break;
+                                                             }
+                                                        }
+                                                    }
+                                                }
+                                    if (entityValue == null)
+                                    {
+                                       // mappingUriValues[i].RemoveAt(j);
+                                        //j--;
+                                        //valuesCount--;
+                                    }
                                 }
                             }
-                            if(valuesCount == 0)
+                            if (valuesCount == 0)
                             {
                                 mappingUriValues[i] = null;
                             }
@@ -155,11 +251,11 @@ namespace dialogtool
                     if (indexes[i] >= 0)
                     {
                         // Check if this combination of entity values is allowed for the federation group
-                        if(mappingUriSegments[i][1] == "federationGroup")
+                        if (mappingUriSegments[i][1] == "federationGroup")
                         {
                             federationGroup = mappingUriValues[i][indexes[i]];
                         }
-                        else if(federationGroup != null)
+                        else if (federationGroup != null)
                         {
                             var entityName = mappingUriSegments[i][0].ToUpper();
                             IDictionary<string, IList<string>> arraysOfAllowedValuesByFederation = null;
@@ -185,7 +281,7 @@ namespace dialogtool
                 if (cnt < (count - 1))
                 {
                     int idx = 0;
-                    for (;;)
+                    for (; ; )
                     {
                         if (indexes[idx] < 0)
                         {
@@ -207,9 +303,44 @@ namespace dialogtool
             }
 
             var compactResult = new List<string>();
-            foreach(var uri in result)
+
+            foreach (var uri in result)
             {
-                if (uri != null) compactResult.Add(uri);
+
+                if (mappingUriConfig == MappingUriConfig.Insurance)
+                {
+                    var uriTemp = uri;
+                    foreach (string federation in Insurance_List_Federation)
+                    {
+                        uriTemp = "/federationGroup/" + federation + uri;
+                        bool restrictionOnProduct = false;
+                        foreach (var tuple in Insurance_FederationNotAllowedEntities)
+                        {
+                            // If the URI is about this product
+                            if (uriTemp.Contains("/" + tuple.Key))
+                            {
+                                restrictionOnProduct = true;
+                                // Chek if the actual uri has the forbidden Federations
+                                bool inside = false;
+                                foreach (var fede in tuple.Value)
+                                {
+                                    if (uriTemp.Contains("/federationGroup/" + fede + "/"))
+                                        inside = true;
+                                }
+                                if (!inside)
+                                    if (uri != null) compactResult.Add(uriTemp);
+                            }
+
+                        }
+                        if (!restrictionOnProduct)
+                            if (uri != null) compactResult.Add(uriTemp);
+                    }
+                }
+                else
+                {
+                    if (uri != null) compactResult.Add(uri);
+                }
+
             }
             return compactResult.ToArray();
         }
@@ -217,7 +348,7 @@ namespace dialogtool
         public static string ComputeMappingURI(IDictionary<string, string> variablesValues, MappingUriConfig mappingUriConfig, out bool redirectToLongTail, out bool directAnswserValueNotSupportedInFederation)
         {
             directAnswserValueNotSupportedInFederation = false;
-         
+
             // Redirect to long tail ?
             var redirectToLongTailVariableName = mappingUriConfig == MappingUriConfig.Insurance ? Insurance_RedirectToLongTailVariable : Savings_RedirectToLongTailVariable;
             string redirectToLongTailValue = null;
@@ -229,14 +360,14 @@ namespace dialogtool
             }
 
             // Display federation error message ?
-            if(mappingUriConfig == MappingUriConfig.Savings)
+            if (mappingUriConfig == MappingUriConfig.Savings)
             {
                 foreach (var varName in Savings_FederationNotSupportedVariables)
                 {
                     string directAnswserValueNotSupported = null;
                     variablesValues.TryGetValue(varName, out directAnswserValueNotSupported);
                     directAnswserValueNotSupportedInFederation = directAnswserValueNotSupported == "yes";
-                    if(directAnswserValueNotSupportedInFederation)
+                    if (directAnswserValueNotSupportedInFederation)
                     {
                         return null;
                     }
@@ -280,4 +411,6 @@ namespace dialogtool
             return sb.ToString();
         }
     }
+
+
 }

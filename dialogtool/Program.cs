@@ -12,13 +12,16 @@ namespace dialogtool
         {
             gensource,
             gendialog,
+            genref,
             check,
             view,
             answers,
+            question,
             concepts,
             debug,
             compare,
             internaltest
+
         }
 
         private static void DisplayDialogToolSyntax()
@@ -33,14 +36,19 @@ namespace dialogtool
             Console.WriteLine(@">  generates dialog file from compact code => input\savings_0703.xml");
             Console.WriteLine(@">  (using a template => source\savings_0703.template.xml)");
             Console.WriteLine();
+            Console.WriteLine(@"dialogtool genref  input\savings_0703.code.xml");
+            Console.WriteLine(@">  generates ref file from dialog file => result\ref_savings_0703.xml");
+            Console.WriteLine(@">  (using a dialog => input\savings_0703.xml)");
+            Console.WriteLine();
             Console.WriteLine(@"dialogtool check input\savings_0703.xml");
             Console.WriteLine(@">  checks dialog file consistency => result\savings_0703.errors.csv");
             Console.WriteLine();
             Console.WriteLine(@"dialogtool view input\savings_0703.xml");
             Console.WriteLine(@">  generates HTML view of dialog => result\savings_0703.view.html");
             Console.WriteLine();
-            Console.WriteLine(@"dialogtool answers input\savings_0703.xml");
-            Console.WriteLine(@">  extracts answers mapping URIs from dialog => result\savings_0703.answers.csv");
+            Console.WriteLine(@"dialogtool answers input\savings_0703.xml input\questions.csv");
+            Console.WriteLine(@">  extracts answers mapping URIs and questions from dialog => result\savings_0703.answers.csv");
+            Console.WriteLine(@">  the parameter for the question file is optional");
             Console.WriteLine();
             Console.WriteLine(@"dialogtool concepts input\savings_0703.xml");
             Console.WriteLine(@">  extracts concepts values and synonyms from dialog => result\savings_0703.concepts.csv");
@@ -75,6 +83,9 @@ namespace dialogtool
                     case "gendialog":
                         dialogCommand = DialogToolCommands.gendialog;
                         break;
+                    case "genref":
+                        dialogCommand = DialogToolCommands.genref;
+                        break;
                     case "check":
                         dialogCommand = DialogToolCommands.check;
                         break;
@@ -107,14 +118,24 @@ namespace dialogtool
                 {
                     case DialogToolCommands.gensource:
                     case DialogToolCommands.gendialog:
+                    case DialogToolCommands.genref:
                     case DialogToolCommands.check:
-                    case DialogToolCommands.answers:
                     case DialogToolCommands.internaltest:
                     case DialogToolCommands.concepts:
 
                         if (args.Length != 2)
                         {
                             Console.WriteLine("ERROR : one parameter expected for dialogtool command \"" + command + "\"");
+                            Console.WriteLine();
+                            DisplayDialogToolSyntax();
+                            return;
+                        }
+                        break;
+                    case DialogToolCommands.answers:
+
+                        if (args.Length < 2 || args.Length > 3)
+                        {
+                            Console.WriteLine("ERROR : one or two parameters expected for dialogtool command \"" + command + "\"");
                             Console.WriteLine();
                             DisplayDialogToolSyntax();
                             return;
@@ -161,17 +182,20 @@ namespace dialogtool
 
                 string relativeFilePath2 = null;
                 FileInfo fileInfo2 = null;
-                if (dialogCommand == DialogToolCommands.debug || dialogCommand == DialogToolCommands.compare)
+                if (dialogCommand == DialogToolCommands.debug || dialogCommand == DialogToolCommands.compare || dialogCommand == DialogToolCommands.answers)
                 {
-                    relativeFilePath2 = args[2];
-                    if (!File.Exists(relativeFilePath2))
+                    if (args.Length >= 3)
                     {
-                        Console.WriteLine("ERROR : file not found \"" + relativeFilePath2 + "\"");
-                        return;
-                    }
-                    else
-                    {
-                        fileInfo2 = new FileInfo(relativeFilePath2);
+                        relativeFilePath2 = args[2];
+                        if (!File.Exists(relativeFilePath2))
+                        {
+                            Console.WriteLine("ERROR : file not found \"" + relativeFilePath2 + "\"");
+                            return;
+                        }
+                        else
+                        {
+                            fileInfo2 = new FileInfo(relativeFilePath2);
+                        }
                     }
                 }
 
@@ -199,6 +223,9 @@ namespace dialogtool
                     case DialogToolCommands.gendialog:
                         GenerateDialogFile(fileInfo1);
                         break;
+                    case DialogToolCommands.genref:
+                        GenerateReferenceFile(fileInfo1);
+                        break;
                     case DialogToolCommands.check:
                         CheckFileConsistency(fileInfo1);
                         break;
@@ -206,7 +233,7 @@ namespace dialogtool
                         ViewDialogBranches(fileInfo1, args[2]);
                         break;
                     case DialogToolCommands.answers:
-                        GenerateAnswersMappingURIs(fileInfo1);
+                        GenerateAnswersMappingURIs(fileInfo1, fileInfo2);
                         break;
                     case DialogToolCommands.concepts:
                         GenerateConcepts(fileInfo1);
@@ -222,7 +249,7 @@ namespace dialogtool
                         break;
                 }
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Console.WriteLine();
                 Console.WriteLine("----------");
@@ -230,11 +257,13 @@ namespace dialogtool
                 ReportException(e);
                 Console.WriteLine("----------");
             }
+
+
         }
-               
+
         private static void ReportException(Exception e)
         {
-            if(e.InnerException != null)
+            if (e.InnerException != null)
             {
                 ReportException(e.InnerException);
             }
@@ -277,6 +306,55 @@ namespace dialogtool
             Console.WriteLine("dialogtool command \"gendialog\" not yet implemented");
         }
 
+        private static void GenerateReferenceFile(FileInfo dialogFileInfo)
+        {
+            Console.WriteLine("Generate reference file :");
+            Console.WriteLine();
+
+
+            // Load dialog file
+            string sourceOrDialogFileName;
+            Dialog dialog = LoadDialogFile(dialogFileInfo, out sourceOrDialogFileName);
+
+            // Reference file path
+            var referenceFilePath = @"result/" + "ref-" + sourceOrDialogFileName + ".xlsx";
+            Console.Write("Writing " + referenceFilePath + " ... ");
+
+            List<string> mappingURISet = new List<string>();
+            foreach (DialogNode node in dialog.Intents.Values)
+            {
+                GetUris(node, mappingURISet);
+            }
+            
+            ReferenceFile.Write(mappingURISet, referenceFilePath);
+            Console.WriteLine("OK");
+
+        }
+
+        private static List<string> GetUris(DialogNode node, List<string> mappingURISet)
+        {
+            if (node.Type == DialogNodeType.FatHeadAnswers)
+            {
+                var fatHeadAnswers = (FatHeadAnswers)node;
+                foreach (var mappingUri in fatHeadAnswers.MappingUris)
+                {
+                    if (!mappingURISet.Contains(mappingUri) && mappingUri != "")
+                    {
+                        mappingURISet.Add(mappingUri);
+
+                    }
+                }
+            }
+            else if (node.ChildrenNodes != null)
+            {
+                foreach (var childNode in node.ChildrenNodes)
+                {
+                    GetUris(childNode, mappingURISet);
+                }
+            }
+            return mappingURISet;
+        }
+
         private static void CheckFileConsistency(FileInfo sourceOrDialogFileInfo)
         {
             Console.WriteLine("Check dialog file consistency :");
@@ -285,10 +363,10 @@ namespace dialogtool
             // Load dialog file
             string sourceOrDialogFileName;
             Dialog dialog = LoadDialogFile(sourceOrDialogFileInfo, out sourceOrDialogFileName);
-            
+
             Console.WriteLine("Dialog file metrics :");
             var nodeTypeCounts = dialog.ComputeNodesStatistics();
-            foreach(var nodeType in nodeTypeCounts.Keys)
+            foreach (var nodeType in nodeTypeCounts.Keys)
             {
                 Console.WriteLine("- " + nodeTypeCounts[nodeType] + " " + nodeType.ToString() + " nodes");
             }
@@ -343,7 +421,7 @@ namespace dialogtool
             Dialog dialog = LoadDialogFile(dialogFileInfo, out sourceOrDialogFileName);
 
             // Write view file
-            var sourceFilePath = @"view\" + sourceOrDialogFileName;
+            var sourceFilePath = @"result\" + sourceOrDialogFileName;
             Console.Write("Writing " + sourceFilePath + " ... ");
 
             ViewFile.Write(dialog, @"view\" + sourceOrDialogFileName, answerstoreFile);
@@ -352,10 +430,18 @@ namespace dialogtool
             Console.WriteLine("");
         }
 
-        private static void GenerateAnswersMappingURIs(FileInfo sourceOrDialogFileInfo)
+        private static void GenerateAnswersMappingURIs(FileInfo sourceOrDialogFileInfo, FileInfo annotatedQuestionsFileInfo)
         {
             Console.WriteLine("Generate answers mapping URIs :");
             Console.WriteLine();
+
+            List<String[]> resultList = null;
+
+            // If we have a question file
+            if (annotatedQuestionsFileInfo != null)
+            {
+                resultList = MapQuestionUri(sourceOrDialogFileInfo, annotatedQuestionsFileInfo);
+            }
 
             // Load dialog file
             string sourceOrDialogFileName;
@@ -364,22 +450,32 @@ namespace dialogtool
             // Write answers mapping URIs file
             var mappingFilePath = @"result\" + sourceOrDialogFileName + ".answers.csv";
             Console.Write("Writing " + mappingFilePath + " ... ");
-            HashSet<string> mappingURISet = new HashSet<string>();            
+            HashSet<string> mappingURISet = new HashSet<string>();
+            int uriMissing = 0;
             using (StreamWriter sw = new StreamWriter(mappingFilePath, false, Encoding.GetEncoding("iso8859-1")))
             {
-                foreach(var intent in dialog.Intents.Values)
+                foreach (var intent in dialog.Intents.Values)
                 {
-                    WriteAnswers(sw, intent, mappingURISet);
+                    WriteAnswers(sw, intent, mappingURISet, ref uriMissing, resultList);
                 }
             }
 
+            if (uriMissing != 0)
+            {
+                Console.WriteLine("");
+                Console.WriteLine("");
+                Console.WriteLine("/!\\ " + uriMissing + " URIs do not have any associated questions");
+                Console.WriteLine("");
+            }
             Console.WriteLine("OK");
             Console.WriteLine("");
             Console.WriteLine("=> generated " + mappingURISet.Count + " distinct mapping URIs");
             Console.WriteLine("");
+
         }
 
-        private static void WriteAnswers(StreamWriter sw, DialogNode dialogNode, HashSet<string> mappingURISet)
+
+    private static void WriteAnswers(StreamWriter sw, DialogNode dialogNode, HashSet<string> mappingURISet, ref int countUriMissing, List<String[]> resultList = null)
         {
             if (dialogNode.Type == DialogNodeType.FatHeadAnswers)
             {
@@ -391,18 +487,92 @@ namespace dialogtool
                         if (!mappingURISet.Contains(mappingUri) && mappingUri != "")
                         {
                             mappingURISet.Add(mappingUri);
-                            sw.WriteLine(dialogNode.LineNumber + ";" + mappingUri);
-                        }                        
+                            string formatQuestions = "";
+                            // If we want to get the question and the URI
+                            if (resultList != null)
+                            {
+                                // A list to collect all the question for the current URI
+                                List <string> questionsList = new List<String>();
+                                foreach(string [] q in resultList)
+                                {
+                                    string uri = q[1];
+                                    // If we find the same URI
+                                    if(q[0].Equals(mappingUri))
+                                    {
+                                        // We add the question to the question list
+                                        questionsList.Add(q[1]);
+                                    }
+                                }
+                                // Formatting for the CSV file
+                                foreach (string q in questionsList)
+                                {
+                                    formatQuestions += q + ";";
+                                }
+                                // If no question has been found, we increment the number of alone URI
+                                if (questionsList.Count == 0)
+                                {
+                                    countUriMissing++;
+                                }
+                            }
+                            sw.WriteLine(dialogNode.LineNumber + ";" + mappingUri + ";" + formatQuestions);
+                        }
                     }
                 }
             }
-            else if(dialogNode.ChildrenNodes != null)
+            else if (dialogNode.ChildrenNodes != null)
             {
-                foreach(var childNode in dialogNode.ChildrenNodes)
+                foreach (var childNode in dialogNode.ChildrenNodes)
                 {
-                    WriteAnswers(sw, childNode, mappingURISet);
+                    WriteAnswers(sw, childNode, mappingURISet, ref countUriMissing, resultList);
                 }
             }
+        }
+
+        // Return a List of pair {URI, Question} from a dialog file and a question file
+        private static List<String[]> MapQuestionUri(FileInfo sourceOrDialogFileInfo, FileInfo annotatedQuestionsFileInfo)
+        {
+            // Load new dialog file
+            string sourceOrDialogFileName;
+            Dialog dialog = LoadDialogFile(sourceOrDialogFileInfo, out sourceOrDialogFileName);
+
+            List<String[]> resultList = new List<String[]>();
+            
+            using (StreamReader sr = new StreamReader(annotatedQuestionsFileInfo.FullName, Encoding.GetEncoding("UTF-8")))
+            {
+                string line = null;
+                while ((line = sr.ReadLine()) != null)
+                {
+                    string[] columns = line.Split(';');
+                    string questionId = columns[0];
+                    string questionText = columns[1];
+                    string intentName = columns[2];
+
+                    // Simulate new dialog execution 
+                    var result = DialogInterpreter.AnalyzeInitialQuestion(dialog, questionId, questionText, intentName);
+                    var type = result.ExecutionResult != null ? result.ExecutionResult.DialogNode.Type.ToString() : "[no result]";
+                    
+                    if (type == "FatHeadAnswers")
+                    {
+                        var node = result.ExecutionResult as FatHeadAnswerNodeExecution;
+
+                        if(node != null)
+                        {
+                            var newURI = node.MappingURI;
+                        
+                            List<String> listUriWithFederation = MappingUriGenerator.AddFederationsToUri(newURI);
+                            foreach(string uriTemp in listUriWithFederation)
+                            {
+                                string[] temp = { uriTemp, questionText };
+                                resultList.Add(temp);
+                            }
+                        }
+
+                    }
+                    
+                }
+            }
+
+            return resultList;
         }
 
         private static void GenerateConcepts(FileInfo sourceOrDialogFileInfo)

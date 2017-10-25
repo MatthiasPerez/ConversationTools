@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Xml.Linq;
 
 namespace dialogtool
 {
@@ -91,6 +92,14 @@ namespace dialogtool
         public DialogVariable EntityVariable2 { get; internal set; }
         
         internal int LineNumber { get; set; }
+
+        
+        public override String ToString()
+        {
+            return "EntityName :" + EntityName + " \t EntityVariableName1 :" +  EntityVariableName1 + " \t EntityVariableName2 :" + EntityVariableName2;
+        }
+
+
     }
 
     public class SwitchOnEntityVariables : DialogNode
@@ -261,6 +270,7 @@ namespace dialogtool
 
             QuestionExpression = questionExpression;
             QuestionText = questionText;
+
         }
 
         public string QuestionExpression { get; private set; }
@@ -268,6 +278,7 @@ namespace dialogtool
         public IList<DisambiguationOption> DisambiguationOptions { get; private set; }
 
         public EntityMatch EntityMatch { get; private set; }
+
 
         public void SetEntityMatchAndDisambiguationOptions(EntityMatch entityMatch, IList<string> disambiguationOptionsText, Dialog dialog)
         {
@@ -297,6 +308,7 @@ namespace dialogtool
              {
                 foreach (var optionText in disambiguationOptionsText)
                 {
+                    
                     var entityValuesMatchResult = dialog.MatchEntityValueInOptionText(this, entityMatch.Entity, optionText);
                     if (entityValuesMatchResult.EntityValues.Count == 0)
                     {
@@ -421,11 +433,11 @@ namespace dialogtool
         public DialogVariable[] EntityVariablesNotExplicitlySet { get; private set; }
         public string[] MappingUris { get; private set; }
 
-        public void GenerateMappingUris(DialogVariablesSimulator dialogVariables, MappingUriGenerator.MappingUriConfig mappingUriConfig, IDictionary<string, IDictionary<string, IList<string>>> arraysOfAllowedValuesByEntityNameAndFederation)
+        public void GenerateMappingUris(DialogVariablesSimulator dialogVariables, MappingUriGenerator.MappingUriConfig mappingUriConfig, IDictionary<string, IDictionary<string, IList<string>>> arraysOfAllowedValuesByEntityNameAndFederation, XDocument XmlDocument = null, DialogNode node = null)
         {
             EntityVariablesNotExplicitlySet = dialogVariables.ResetEntityVariablesNotExplicitlySet(MappingUriGenerator.GetEntityVariables(mappingUriConfig));
             bool redirectToLongTail;
-            MappingUris = MappingUriGenerator.GenerateMappingURIs(dialogVariables, mappingUriConfig, arraysOfAllowedValuesByEntityNameAndFederation, out redirectToLongTail);
+            MappingUris = MappingUriGenerator.GenerateMappingURIs(dialogVariables, mappingUriConfig, arraysOfAllowedValuesByEntityNameAndFederation, out redirectToLongTail, XmlDocument, node);
             if (redirectToLongTail)
             {
                 Type = DialogNodeType.RedirectToLongTail;

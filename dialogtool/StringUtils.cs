@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace dialogtool
 {
-    public class StringUtils
+    public static class StringUtils
     {
         public static string RemoveDiacriticsAndNonAlphanumericChars(string input)
         {
@@ -51,5 +53,33 @@ namespace dialogtool
                 }
             return distances[lengthA, lengthB];
         }
+
+
+        // Return the list of the string find between two values
+        // Return null if no result
+        public static List<string> ExtractFromString(this string source, string start, string end)
+        {
+            List<String> results = null;
+
+            string pattern = string.Format(
+                "{0}({1}){2}",
+                Regex.Escape(start),
+                ".+?",
+                 Regex.Escape(end));
+
+            foreach (Match m in Regex.Matches(source, pattern))
+            {
+                if(results == null)
+                {
+                    results = new List<string>();
+                }
+                results.Add(m.Groups[1].Value);
+            }
+
+            return results;
+        }
+
     }
+
+
 }

@@ -42,16 +42,16 @@ namespace dialogtool
                 var answerFolder = XmlDocument.Descendants("folder").Where(node => node.Attribute("label") != null && node.Attribute("label").Value == answerFolderLabel).First();
                 AnalyzeAnswerFolder(answerFolder);
             }
-            
             AnalyzeVariablesFolders();
             AnalyzeConstantsFolders();
             AnalyzeEntitiesAndConceptsFolders();
             dialog.DetectMappingURIsConfig();
+            MappingUriGenerator.FindInsuranceAllowedValue(XmlDocument);
 
             var rootIntentFolder = XmlDocument.Descendants("folder").Where(elt => elt.Attribute("label").Value == intentsFolderLabel).First();
             AnalyzeIntentsFolder(intentsFolderLabel, rootIntentFolder);
             dialog.ResolveAndCheckReferences();
-            
+
             LogOfflineElements();
 
             return dialog;
@@ -62,7 +62,7 @@ namespace dialogtool
             var offlineElements = XmlDocument.Descendants().Where(node => node.Attribute("isOffline") != null);
             foreach (var offlineElement in offlineElements)
             {
-                dialog.LogMessage(((IXmlLineInfo)offlineElement).LineNumber, MessageType.Info, "Element "+offlineElement.Name.LocalName+" is disabled, you should maybe delete it");
+                dialog.LogMessage(((IXmlLineInfo)offlineElement).LineNumber, MessageType.Info, "Element " + offlineElement.Name.LocalName + " is disabled, you should maybe delete it");
             }
         }
 
@@ -109,7 +109,7 @@ namespace dialogtool
             */
             var arraysOfAllowedValuesNodes = startOfDialogNode.Descendants("action").Where(action => action.Attribute("varName").Value.StartsWith(arrayOfAllowedVariablesPrefix) && action.Attribute("operator").Value == "SET_TO");
             var arraysOfAllowedValues = new Dictionary<string, string[]>();
-            foreach(var arrayOfAllowedValuesNode in arraysOfAllowedValuesNodes)
+            foreach (var arrayOfAllowedValuesNode in arraysOfAllowedValuesNodes)
             {
                 var arrayVarName = arrayOfAllowedValuesNode.Attribute("varName").Value;
                 var entityNameFromArray = GetEntityNameFromAllowedValuesArrayName(arrayVarName);
@@ -149,7 +149,7 @@ namespace dialogtool
             var entityName = entityLabel.ToUpper() + "_ENTITY";
             return entityName;
         }
-        
+
         private string GetAllowedValuesArrayNameFromEntityName(string entityName)
         {
             var entityLabel = entityName.Split('_')[0].ToLower();
@@ -266,7 +266,7 @@ namespace dialogtool
                 }
                 var concept = new Concept(conceptId, synonyms);
                 concept.LineNumber = ((IXmlLineInfo)conceptNode).LineNumber;
-                dialog.AddConcept(concept);               
+                dialog.AddConcept(concept);
             }
             dialog.OnAllConceptsAdded();
 
@@ -301,11 +301,11 @@ namespace dialogtool
                             conceptIds.Add(conceptNode.Attribute("ref").Value);
                         }
                     }
-                    dialog.LinkEntityValueToConcept(entityValue, conceptIds);                    
+                    dialog.LinkEntityValueToConcept(entityValue, conceptIds);
                 }
                 dialog.AddEntity(entity);
             }
-            dialog.OnAllEntitiesAdded();            
+            dialog.OnAllEntitiesAdded();
         }
 
         private void AnalyzeIntentsFolder(string parentFolder, XElement intentsFolder)
@@ -350,7 +350,7 @@ namespace dialogtool
                     intentName = item.Value;
 
                     // Very special case : TBPs are ignored
-                    if(intentName.Equals("TBPs", StringComparison.InvariantCultureIgnoreCase))
+                    if (intentName.Equals("TBPs", StringComparison.InvariantCultureIgnoreCase))
                     {
                         dialog.LogMessage(((IXmlLineInfo)intentInput).LineNumber, MessageType.Info, "Ignored \"" + intentName + "\" intent node");
                         return;
@@ -376,7 +376,7 @@ namespace dialogtool
                 {
                     intent.AddEntityMatch(entityMatch);
                 }
-                
+
                 // Check for unexpected additional output node
                 if (inputChildElement.Element("output") != null)
                 {
@@ -409,7 +409,7 @@ namespace dialogtool
                         {
                             AnalyzeDisambiguationQuestion(intent, inputChildElement, dialogVariables);
                         }
-                        else if(!skipGotoPattern)
+                        else if (!skipGotoPattern)
                         {
                             AnalyzeGotoOrAnswerNode(intent, inputChildElement, dialogVariables);
                         }
@@ -470,7 +470,7 @@ namespace dialogtool
                     matchIndex++;
                 }
             }
-            if(entityName == null)
+            if (entityName == null)
             {
                 // Special case : direct text patterns instead of entity match => not supported yet
                 // Is it a pattern we would like to support in the future or a mistake in the dialog file ?
@@ -521,9 +521,9 @@ namespace dialogtool
                 variableName1 = variableName2;
                 variableName2 = null;
             }
-            
+
             var entityMatch = new EntityMatch(entityName, variableName1, variableName2);
-            entityMatch.LineNumber = ((IXmlLineInfo)inputElement).LineNumber;            
+            entityMatch.LineNumber = ((IXmlLineInfo)inputElement).LineNumber;
             dialog.LinkEntityMatchToEntityAndDialogVariables(dialogNode, entityMatch);
 
             // Handle if children nodes inside entity match pattern
@@ -558,7 +558,7 @@ namespace dialogtool
 
             return entityMatch;
         }
-        
+
         private static Regex ENTITY_MATCH_REGEX = new Regex(@"\((?<entity>[^\)]+)\)\s*=\s*{(?<var>[^}]+)}", RegexOptions.Compiled);
 
         private void SetDialogNodeIdAndLineNumberAndVariableAssignments(DialogNode dialogNode, XElement idElement, XElement variablesElement, DialogVariablesSimulator dialogVariables, Dialog dialog)
@@ -590,6 +590,10 @@ namespace dialogtool
                         switch (operatorName)
                         {
                             case "SET_TO":
+                                if(action.Value == "protection_juridique_corail_4.14")
+                                {
+                                    //Console.WriteLine(action.Value);
+                                }
                                 @operator = DialogVariableOperator.SetTo;
                                 break;
                             case "SET_TO_BLANK":
@@ -603,7 +607,7 @@ namespace dialogtool
                                 break;
                             case "SET_AS_USER_INPUT":
                             case "APPEND":
-                                dialog.LogMessage(((IXmlLineInfo)action).LineNumber, MessageType.IncorrectPattern, "Action with operator "+operatorName+" ignored while reading the Xml dialog file");
+                                dialog.LogMessage(((IXmlLineInfo)action).LineNumber, MessageType.IncorrectPattern, "Action with operator " + operatorName + " ignored while reading the Xml dialog file");
                                 continue;
                             default:
                                 throw new Exception("Line " + ((IXmlLineInfo)action).LineNumber + " : Unexpected action operator " + operatorName);
@@ -622,7 +626,7 @@ namespace dialogtool
                                 var refVarName = variableValue.Substring(1, variableValue.Length - 2);
                                 DialogVariable refVariable = null;
                                 dialog.Variables.TryGetValue(refVarName, out refVariable);
-                                if(refVariable == null)
+                                if (refVariable == null)
                                 {
                                     dialog.LogMessage(((IXmlLineInfo)action).LineNumber, MessageType.InvalidReference, "Failed to resolve variable name in variable to variable value assignment : " + refVarName);
                                 }
@@ -655,13 +659,13 @@ namespace dialogtool
         private bool DetectDisambiguationQuestion(XElement outputElement, out bool skipGotoPattern, IMessageCollector errors)
         {
             skipGotoPattern = false;
-            if(outputElement.Element("getUserInput") != null)
+            if (outputElement.Element("getUserInput") != null)
             {
                 return true;
             }
             else
             {
-                if(outputElement.Element("prompt") != null &&
+                if (outputElement.Element("prompt") != null &&
                    outputElement.Element("prompt").Element("item") != null &&
                    outputElement.Element("input") != null)
                 {
@@ -737,7 +741,7 @@ namespace dialogtool
                 if (entityMatch != null)
                 {
                     disambiguationQuestion.SetEntityMatchAndDisambiguationOptions(entityMatch, options, dialog);
-                }               
+                }
             }
             dialogVariables.AddDisambiguationQuestion(disambiguationQuestion);
 
@@ -754,7 +758,7 @@ namespace dialogtool
                 {
                     AnalyzeDisambiguationQuestion(disambiguationQuestion, lastOutputElement, dialogVariables);
                 }
-                else if(!skipGotoPattern)
+                else if (!skipGotoPattern)
                 {
                     AnalyzeGotoOrAnswerNode(disambiguationQuestion, lastOutputElement, dialogVariables);
                 }
@@ -818,7 +822,7 @@ namespace dialogtool
                         messageText = CONSTANT_REFERENCE_REGEX.Replace(messageExpression, constant.Value);
                     }
                     else
-                    {                        
+                    {
                         messageText = messageExpression;
                     }
                 }
@@ -880,7 +884,7 @@ namespace dialogtool
                 gotoOrAnswerNode = new RedirectToLongTail(parentNode, gotoRef, messageExpression, messageText, dialog);
             }
             else
-            {                
+            {
                 gotoOrAnswerNode = new GotoNode(parentNode, gotoRef, messageExpression, messageText, dialog);
             }
 
@@ -888,7 +892,7 @@ namespace dialogtool
             if (gotoElement == null && outputOrGotoElement.Element("if") != null)
             {
                 dialog.LogMessage(((IXmlLineInfo)outputOrGotoElement).LineNumber, MessageType.IncorrectPattern, "Output node pattern different from disambiguation question or goto not supported => part of tree ignored");
-                return;   
+                return;
             }
 
             SetDialogNodeIdAndLineNumberAndVariableAssignments(gotoOrAnswerNode, elementWithId, new XElement[] { outputOrGotoElement, gotoElement }, dialogVariables, dialog);
@@ -899,14 +903,14 @@ namespace dialogtool
             }
             if (gotoOrAnswerNode.Type == DialogNodeType.FatHeadAnswers)
             {
-                ((FatHeadAnswers)gotoOrAnswerNode).GenerateMappingUris(dialogVariables, dialog.MappingUriConfig, dialog.ArraysOfAllowedValuesByEntityNameAndFederation);
+                ((FatHeadAnswers)gotoOrAnswerNode).GenerateMappingUris(dialogVariables, dialog.MappingUriConfig, dialog.ArraysOfAllowedValuesByEntityNameAndFederation, XmlDocument, gotoOrAnswerNode);
             }
             if (gotoOrAnswerNode.Type == DialogNodeType.GotoNode)
             {
                 ((GotoNode)gotoOrAnswerNode).CheckTargetNodeId(dialog);
             }
         }
-        
+
         private void AnalyzeDialogVariableConditions(DialogNode parentNode, XElement ifElement, DialogVariablesSimulator dialogVariables, bool isFirstElement, ref DialogNode inlineSwitchDialogNode, ref XElement switchSecondIfElement)
         {
             /*
@@ -963,10 +967,10 @@ namespace dialogtool
 
             // Special case : SwitchOnEntityVariables pattern
             // -> PATTERN 1 : enclosing HasValue condition
-            if(variableConditions.Count == 1)
+            if (variableConditions.Count == 1)
             {
                 var uniqueCondition = variableConditions[0];
-                if(uniqueCondition.Comparison == ConditionComparison.HasValue)
+                if (uniqueCondition.Comparison == ConditionComparison.HasValue)
                 {
                     EntityMatch relatedEntityMatch = null;
                     foreach (var entityMatch in dialogVariables.LastEntityMatches)
@@ -981,11 +985,11 @@ namespace dialogtool
                     {
                         var lastIfChild = ifElement.Elements("if").LastOrDefault();
                         if (lastIfChild != null)
-                        {                            
+                        {
                             var cond = lastIfChild.Element("cond");
-                            if(cond != null)
+                            if (cond != null)
                             {
-                                if(cond.Attribute("varName").Value == relatedEntityMatch.EntityVariableName2 &&
+                                if (cond.Attribute("varName").Value == relatedEntityMatch.EntityVariableName2 &&
                                     cond.Attribute("operator").Value == "HAS_VALUE")
                                 {
                                     switchSecondIfElement = lastIfChild;
@@ -1001,7 +1005,7 @@ namespace dialogtool
                 }
             }
             // -> PATTERN 2 : no enclosing HasValue condition
-            if(dialogNode == null && parentNode.Type != DialogNodeType.SwitchOnEntityVariables && isFirstElement && variableConditions.Count > 0)
+            if (dialogNode == null && parentNode.Type != DialogNodeType.SwitchOnEntityVariables && isFirstElement && variableConditions.Count > 0)
             {
                 var firstCondition = variableConditions[0];
                 if (firstCondition.Comparison == ConditionComparison.Equals)
@@ -1041,21 +1045,21 @@ namespace dialogtool
             }
 
             // DialogVariableConditions node
-            if(dialogNode == null)
-            {                
+            if (dialogNode == null)
+            {
                 // Dialog node
                 var dialogVariablesConditions = new DialogVariableConditions(parentNode, variableConditions, @operator);
-                if(ifElement.Attribute("id") != null && ifElement.Attribute("id").Value == parentNode.Id)
+                if (ifElement.Attribute("id") != null && ifElement.Attribute("id").Value == parentNode.Id)
                 {
                     ifElement.SetAttributeValue("id", null);
                 }
                 SetDialogNodeIdAndLineNumberAndVariableAssignments(dialogVariablesConditions, ifElement, ifElement, dialogVariables, dialog);
                 parentNode.ChildrenNodes.Add(dialogVariablesConditions);
                 dialogNode = dialogVariablesConditions;
-                
+
                 // Add conditions
                 foreach (var variableCondition in variableConditions)
-                {                    
+                {
                     dialog.LinkDialogVariableConditionToDialogVariableAndEntityValue(dialogVariablesConditions, variableCondition, dialogVariables);
                 }
                 dialogVariables.AddDialogVariableConditions(dialogVariablesConditions);
@@ -1105,12 +1109,12 @@ namespace dialogtool
                     // Check variable values restrictions are applied each time a restricted entity value is tested in a condition
                     foreach (var condition in dialogVariablesConditions.VariableConditions)
                     {
-                        if(condition.EntityValue != null && condition.EntityValue.AllowedInFederationGroups != null && 
-                            condition.EntityValue.AllowedInFederationGroups.Count < dialog.ArraysOfAllowedValuesByEntityNameAndFederation[condition.EntityValue.Entity.Name].Keys.Count() && 
+                        if (condition.EntityValue != null && condition.EntityValue.AllowedInFederationGroups != null &&
+                            condition.EntityValue.AllowedInFederationGroups.Count < dialog.ArraysOfAllowedValuesByEntityNameAndFederation[condition.EntityValue.Entity.Name].Keys.Count() &&
                             dialogVariablesConditions.VariableValuesRestriction == null &&
                             dialogVariables.TryGetVariableValue("federationGroup") == null)
                         {
-                            dialog.LogMessage(dialogVariablesConditions.LineNumber, MessageType.IncorrectPattern, "Dialog variable condition references entity value : " +condition.EntityValue.Entity.Name + " > " + condition.EntityValue.Name + ", this value is not allowed in all federation groups : add a new \"if\" node below the current condition to check if the entity value is allowed for the current federation group");
+                            dialog.LogMessage(dialogVariablesConditions.LineNumber, MessageType.IncorrectPattern, "Dialog variable condition references entity value : " + condition.EntityValue.Entity.Name + " > " + condition.EntityValue.Name + ", this value is not allowed in all federation groups : add a new \"if\" node below the current condition to check if the entity value is allowed for the current federation group");
                             break;
                         }
                     }
@@ -1123,7 +1127,7 @@ namespace dialogtool
             DialogNode inlineSwitchDialogNode2 = null;
             foreach (var ifChildElement in ifElement.Elements().Where(elt => elt.Attribute("isOffline") == null))
             {
-                if(ifChildElement == switchSecondIfElement)
+                if (ifChildElement == switchSecondIfElement)
                 {
                     AnalyzeSwitchLoopOnce(dialogNode, switchSecondIfElement);
                     continue;
@@ -1148,7 +1152,7 @@ namespace dialogtool
                         {
                             AnalyzeDisambiguationQuestion(dialogNode, ifChildElement, dialogVariables);
                         }
-                        else if(!skipGotoPattern)
+                        else if (!skipGotoPattern)
                         {
                             AnalyzeGotoOrAnswerNode(dialogNode, ifChildElement, dialogVariables);
                         }
@@ -1162,7 +1166,7 @@ namespace dialogtool
                 isFirstChild = false;
             }
         }
-        
+
         public void Write(Dialog dialog, FileInfo templateFileInfo, FileInfo dialogFileInfo)
         {
 
