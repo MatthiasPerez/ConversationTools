@@ -75,6 +75,7 @@ namespace dialogtool
 
                 var command = args[0].ToLower();
                 var dialogCommand = DialogToolCommands.view;
+
                 switch (command)
                 {
                     case "gensource":
@@ -325,11 +326,15 @@ namespace dialogtool
             {
                 GetUris(node, mappingURISet);
             }
-            
-            ReferenceFile.Write(mappingURISet, referenceFilePath);
+
+
+            Dictionary<string,string> intentCanonical = new DialogFile(dialogFileInfo).ReadIntentCanonical();
+            ReferenceFile.Write(mappingURISet, referenceFilePath, intentCanonical);
             Console.WriteLine("OK");
 
         }
+
+
 
         private static List<string> GetUris(DialogNode node, List<string> mappingURISet)
         {
@@ -769,5 +774,27 @@ namespace dialogtool
             Console.WriteLine("OK");
             Console.WriteLine("");
         }
+
+        public static void DeleteDirectory(string target_dir)
+        {
+            string[] files = Directory.GetFiles(target_dir);
+            string[] dirs = Directory.GetDirectories(target_dir);
+
+            foreach (string file in files)
+            {
+                File.SetAttributes(file, FileAttributes.Normal);
+                File.Delete(file);
+            }
+
+            foreach (string dir in dirs)
+            {
+                DeleteDirectory(dir);
+            }
+
+            Directory.Delete(target_dir, false);
+        }
+
     }
+
+
 }

@@ -29,7 +29,7 @@ namespace dialogtool
 
 
 
-        public static void Write(List<string> mappingURISet, string refFilePath)
+        public static void Write(List<string> mappingURISet, string refFilePath, Dictionary<string, string> listIntentCanon )
         {
             Console.WriteLine("");
             Console.WriteLine("Write Reference File");
@@ -148,7 +148,18 @@ namespace dialogtool
                 package.Workbook.Worksheets.Add("MAPPING URI TOTAL");
                 package.Workbook.Worksheets.Add("Entities");
                 package.Workbook.Worksheets.Add("Question clarification Entités");
-                package.Workbook.Worksheets.Add("IntentCanon-Dialogue Monitoring");
+
+
+                // Mapping intent - canonical question
+                ExcelWorksheet intentCanon = package.Workbook.Worksheets.Add("IntentCanon-Dialogue Monitoring");
+
+                int rowIntentCanon = 1;
+                foreach( var intcan in listIntentCanon)
+                {
+                    intentCanon.Cells[rowIntentCanon, 1].Value = intcan.Key;
+                    intentCanon.Cells[rowIntentCanon, 13].Value = intcan.Value;
+                    rowIntentCanon++;
+                }
 
 
                 worksheet.Cells[1, xIntent].Value = "Intentions";
@@ -161,6 +172,8 @@ namespace dialogtool
                 worksheet.Cells[1, xListEntitiesTypes].Value = "Entities";
                 worksheet.Cells[1, xNbEntity].Value = "# of entities";
                 worksheet.Cells[1, xNbFede].Value = "Federations";
+
+
                 for(int i = xNbFede + 1; i < xNumFede + xNbFede + 1; i ++)
                 {
                     worksheet.Cells[1, i].Value = "Fédé " + (i - xNbFede);
@@ -196,7 +209,7 @@ namespace dialogtool
                             worksheet.Cells[k, xListEntitiesTypes].Value = concatEntitiesForHeader;
                         }
 
-                        // New header
+                        // New header   
                         concatEntitiesForHeader = "";
                         nbEntitesForHeader = 0;
                         currentRowHeader = currentRow;
@@ -250,12 +263,12 @@ namespace dialogtool
                         }
 
                         int column = xFirstEntity + Array.IndexOf(entityTypes, e.Key);
-                        worksheet.Cells[currentRow, column].Value = e.Value;
+                        worksheet.Cells[currentRow, column].Value = e.Value.ToLower();
                         worksheet.Cells[currentRowHeader, column].Value = e.Key;
                     }
                     worksheet.Cells[currentRow, xListEntitiesTypes].Value = concat;
 
-                    worksheet.Cells[currentRow, xUri].Value = "/federationGroup/<? $federationGroup ?>/" + row.uri;
+                    worksheet.Cells[currentRow, xUri].Value = "/federationGroup/<? $federationGroup ?>/" + row.uri.ToLower();
                     currentRow++;
                 }
                 // --------- Data and styling goes here -------------- //

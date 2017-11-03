@@ -17,6 +17,8 @@ namespace dialogtool
         static string answerFolderLabel = "AnswerNode";
         static string arrayOfAllowedVariablesPrefix = "ArrayOfAllowed";
 
+        static Dictionary<string, string> intentCanonical = new Dictionary<string, string>();
+
         string filePath;
         XDocument XmlDocument;
         Dialog dialog;
@@ -54,7 +56,34 @@ namespace dialogtool
 
             LogOfflineElements();
 
+            ReadIntentCanonical();
+
             return dialog;
+        }
+
+        public Dictionary<string,string> ReadIntentCanonical()
+        {
+            var node = XmlDocument.Descendants("action").Where(attribute => attribute.Attribute("varName").Value == "ArrayOfCanonicalQuestions");
+            
+            foreach(var n in node)
+            {
+                string result = "<root>" +Regex.Replace(n.Value.ToString(), @"\r\n?|\n", "") + "</root>";
+                XmlDocument xmlDoc = new XmlDocument();
+                xmlDoc.LoadXml(result);
+
+                foreach (XmlNode encodedNode in xmlDoc)
+                {
+                    foreach (XmlNode encodedNode2 in encodedNode)
+                    {
+                        if (!intentCanonical.ContainsKey(encodedNode2.Name))
+                            intentCanonical.Add(encodedNode2.Name, encodedNode2.InnerText);
+
+
+                    }
+                }
+            }
+
+            return intentCanonical;
         }
 
         private void LogOfflineElements()
