@@ -263,12 +263,12 @@ namespace dialogtool
                         }
 
                         int column = xFirstEntity + Array.IndexOf(entityTypes, e.Key);
-                        worksheet.Cells[currentRow, column].Value = e.Value.ToLower();
+                        worksheet.Cells[currentRow, column].Value = e.Value;
                         worksheet.Cells[currentRowHeader, column].Value = e.Key;
                     }
                     worksheet.Cells[currentRow, xListEntitiesTypes].Value = concat;
 
-                    worksheet.Cells[currentRow, xUri].Value = "/federationGroup/<? $federationGroup ?>/" + row.uri.ToLower();
+                    worksheet.Cells[currentRow, xUri].Value = "/federationGroup/<? $federationGroup ?>/" + row.uri;
                     currentRow++;
                 }
                 // --------- Data and styling goes here -------------- //
